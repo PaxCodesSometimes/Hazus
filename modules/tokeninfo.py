@@ -1,54 +1,110 @@
 import colorama
 import requests
+import shutil
 from modules import clear
 from modules import cprint
 
+gray = colorama.Fore.LIGHTBLACK_EX
+cyan = colorama.Fore.CYAN
+green = colorama.Fore.GREEN
+red = colorama.Fore.RED
+yellow = colorama.Fore.YELLOW
 white = colorama.Fore.WHITE
 
+
+def permissions_to_string(permissions):
+    useful_permissions = [
+        "ADMINISTRATOR", "KICK_MEMBERS", "BAN_MEMBERS", "MANAGE_CHANNELS",
+        "MANAGE_GUILD", "MANAGE_ROLES", "MANAGE_WEBHOOKS"
+    ]
+    other_permissions = [
+        "CREATE_INSTANT_INVITE", "ADD_REACTIONS", "VIEW_AUDIT_LOG",
+        "PRIORITY_SPEAKER", "STREAM", "VIEW_CHANNEL", "SEND_MESSAGES",
+        "SEND_TTS_MESSAGES", "MANAGE_MESSAGES", "EMBED_LINKS", "ATTACH_FILES",
+        "READ_MESSAGE_HISTORY", "MENTION_EVERYONE", "USE_EXTERNAL_EMOJIS",
+        "VIEW_GUILD_INSIGHTS", "CONNECT", "SPEAK", "MUTE_MEMBERS", "DEAFEN_MEMBERS",
+        "MOVE_MEMBERS", "USE_VAD", "CHANGE_NICKNAME", "MANAGE_NICKNAMES",
+        "MANAGE_EMOJIS_AND_STICKERS"
+    ]
+
+    def format_permission(perm):
+        return perm.capitalize()
+
+    useful = []
+    rest = []
+
+    for i, perm in enumerate(useful_permissions + other_permissions):
+        if permissions & (1 << i):
+            if perm in useful_permissions:
+                if perm == "ADMINISTRATOR":
+                    useful.insert(0, f"{yellow}{format_permission(perm)}{white}")
+                else:
+                    useful.append(f"{green}{format_permission(perm)}{white}")
+            else:
+                rest.append(format_permission(perm))
+
+    terminal_width = shutil.get_terminal_size().columns
+    useful_str = f"{white}Useful: {', '.join(useful)}"
+    rest_str = f"{white}The Rest: {', '.join(rest)}"
+
+    if len(rest_str) > terminal_width:
+        available_width = terminal_width - len(f"{white}The Rest: ") - 3  # 3 for "..."
+        trimmed_rest = []
+        current_length = 0
+        for perm in rest:
+            if current_length + len(perm) + 2 <= available_width:  # 2 for ", "
+                trimmed_rest.append(perm)
+                current_length += len(perm) + 2
+            else:
+                break
+        rest_str = f"{white}The Rest: {', '.join(trimmed_rest)}..."
+
+    result = f"{useful_str}\n{rest_str}"
+    return result
+
+
 def token_info():
-    token = input("Token: ")
-    response = requests.get("https://discord.com/api/v9/users/@me", headers={"Authorization": token})
+    token = input(f"{white}Token: ")
+    headers = {"Authorization": token}
+    response = requests.get("https://discord.com/api/v9/users/@me", headers=headers)
+
+    if response.status_code == 401:
+        headers["Authorization"] = f"Bot {token}"
+        response = requests.get("https://discord.com/api/v9/users/@me", headers=headers)
+
     if response.status_code == 200:
-        user_response = requests.get(f"https://discord.com/api/v9/users/@me", headers={"Authorization": token})
-        user_data = user_response.json()
+        user_data = response.json()
         username = user_data.get("username")
         bio = user_data.get("bio", "No bio set.")
-        guilds_response = requests.get(f"https://discord.com/api/v9/users/@me/guilds", headers={"Authorization": token})
-        print(colorama.Fore.CYAN + f"------------{username}------------\n")
-        print(colorama.Fore.CYAN + "Token Type: USER\n")
-        print(colorama.Fore.CYAN + f"Bio: {bio}\n")
-        print(colorama.Fore.CYAN + f"------------{username}------------\n")
-        print(colorama.Fore.CYAN + f"Servers {username} is in:\n")
+        token_type = "BOT" if "Bot" in headers["Authorization"] else "USER"
+
+        guilds_response = requests.get("https://discord.com/api/v9/users/@me/guilds", headers=headers)
         guilds_data = guilds_response.json()
-        guildcount = 0
+
+        terminal_width = shutil.get_terminal_size().columns
+
+        print(f"\n{gray}{'=' * terminal_width}")
+        print(f"{cyan}Discord Token Information")
+        print(f"{gray}{'=' * terminal_width}\n")
+
+        print(f"{white}Username: {cyan}{username}")
+        print(f"{white}Token Type: {cyan}{token_type}")
+        print(f"{white}Bio: {cyan}{bio}")
+        print(f"{white}Server Count: {cyan}{len(guilds_data)}")
+
+        print(f"\n{gray}{'-' * terminal_width}")
+        print(f"{cyan}Servers {username} is in:")
+        print(f"{gray}{'-' * terminal_width}")
+
         for guild in guilds_data:
-            guildcount += 1
-            print(colorama.Fore.CYAN + f"Server Name: {guild['name']} | Server ID: {guild['id']}")
-        print(f"{username} is in {guildcount} servers.")
-    elif response.status_code == 401:
-        response = requests.get("https://discord.com/api/v9/users/@me", headers={"Authorization": f"Bot {token}"})
-        if response.status_code == 200:
-            user_response = requests.get(f"https://discord.com/api/v9/users/@me", headers={"Authorization": f"Bot {token}"})
-            user_data = user_response.json()
-            username = user_data.get("username")
-            bio = user_data.get("bio", "No bio set.")
-            guilds_response = requests.get(f"https://discord.com/api/v9/users/@me/guilds", headers={"Authorization": f"Bot {token}"})
-            print(colorama.Fore.CYAN + f"------------{username}------------\n")
-            print(colorama.Fore.CYAN + "Token Type: BOT\n")
-            print(colorama.Fore.CYAN + f"Bio: {bio}\n")
-            print(colorama.Fore.CYAN + f"------------{username}------------\n")
-            print(colorama.Fore.CYAN + f"Servers {username} is in:\n")
-            guilds_data = guilds_response.json()
-            guildcount = 0
-            for guild in guilds_data:
-                guildcount += 1
-                print(colorama.Fore.CYAN + f"Server Name: {guild['name']} | Server ID: {guild['id']}")
-            print(f"{username} is in {guildcount} servers.")
-        else:
-            cprint("Invalid Token.\n", 1)
+            print(f"{white}• {cyan}{guild['name']} {gray}(ID: {guild['id']})")
+            if token_type == "BOT":
+                permissions = permissions_to_string(int(guild['permissions']))
+                print(f"{permissions}\n")
+
+        print(f"{gray}{'=' * terminal_width}")
     else:
-        cprint("Unexpected response from Discord API.\n", 1)
-    print("")
-    print(f"{white}Press enter to continue...")
-    input()
+        cprint("Invalid Token or unexpected response from Discord API.", 1)
+
+    input(f"\n{white}Press enter to continue...")
     clear()

